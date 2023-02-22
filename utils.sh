@@ -16,4 +16,4 @@ BASE_DIR=${THIS_DIR}
 source $BASE_DIR/venv/bin/activate
 echo "Entered virtualenv."
 
-export PYTHONPATH=${BASE_DIR}/venv/lib/python3.5/site-packages
+export PYTHONPATH=${BASE_DIR}/venv/lib/python3.7/site-packages
