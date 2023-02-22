@@ -182,3 +182,227 @@ class TrainRegression(Train):
         if self.MULTI_AGENT_ARCH == self.MULTI_AGENT_ARCH_LASERSCAN:
             self.STATES_IN_OBS = ['is_learning', 'num_other_agents', 'dist_to_goal', 'heading_ego_frame', 'pref_speed', 'radius', 'laserscan']
             self.DATASET_NAME = "laserscan_"
+
+
+
+
+# PA-CADRL Training Configs - Mostly Identical to the above ones, except we penalize dangerous bevahior
+class PA_Train(EnvConfig):
+    def __init__(self):
+        ### PARAMETERS THAT OVERWRITE/IMPACT THE ENV'S PARAMETERS
+        if not hasattr(self, "MAX_NUM_AGENTS_IN_ENVIRONMENT"):
+            self.MAX_NUM_AGENTS_IN_ENVIRONMENT = 4
+        if not hasattr(self, "MAX_NUM_AGENTS_TO_SIM"):
+            self.MAX_NUM_AGENTS_TO_SIM = 4
+
+        # self.STATES_IN_OBS = ['is_learning', 'num_other_agents', 'dist_to_goal', 'heading_ego_frame', 'pref_speed', 'radius', 'laserscan']
+        self.STATES_IN_OBS = ['is_learning', 'num_other_agents', 'dist_to_goal', 'heading_ego_frame', 'pref_speed', 'radius', 'other_agents_states']
+        self.STATES_NOT_USED_IN_POLICY = ['is_learning']
+
+        self.MULTI_AGENT_ARCH_RNN, self.MULTI_AGENT_ARCH_WEIGHT_SHARING, self.MULTI_AGENT_ARCH_LASERSCAN = range(3)
+        self.MULTI_AGENT_ARCH = self.MULTI_AGENT_ARCH_RNN
+
+        if self.MULTI_AGENT_ARCH == self.MULTI_AGENT_ARCH_WEIGHT_SHARING:
+            self.MAX_NUM_OTHER_AGENTS_OBSERVED = 7
+        elif self.MULTI_AGENT_ARCH in [self.MULTI_AGENT_ARCH_RNN, self.MULTI_AGENT_ARCH_LASERSCAN]:
+            self.MAX_NUM_OTHER_AGENTS_OBSERVED = self.MAX_NUM_AGENTS_IN_ENVIRONMENT - 1
+
+        ### INITIALIZE THE ENVIRONMENT'S PARAMETERS
+        EnvConfig.__init__(self)
+
+        ### GENERAL PARAMETERS
+        self.game_grid, self.game_ale, self.game_collision_avoidance = range(3) # Initialize game types as enum
+        self.GAME_CHOICE         = self.game_collision_avoidance # Game choice: Either "game_grid" or "game_ale" or "game_collision_avoidance"
+        self.USE_WANDB = False
+        self.WANDB_PROJECT_NAME = "ga3c_cadrl"
+        self.DEBUG               = False # Enable debug (prints more information for debugging purpose)
+        self.RANDOM_SEED_1000 = 0 # np.random.seed(this * 1000 + env_id)
+
+
+
+        ### REWARDS
+        self.REWARD_AT_GOAL = 1.0 # reward given when agent reaches goal position
+        self.REWARD_COLLISION_WITH_AGENT = -0.25 # reward given when agent collides with another agent
+        self.REWARD_COLLISION_WITH_WALL = -0.25 # reward given when agent collides with wall
+        self.REWARD_GETTING_CLOSE   = -0.1 # reward when agent gets close to another agent (unused?)
+        self.REWARD_ENTERED_NORM_ZONE   = -0.05 # reward when agent enters another agent's social zone
+        self.REWARD_TIME_STEP   = 0.0 # default reward given if none of the others apply (encourage speed)
+        self.REWARD_WIGGLY_BEHAVIOR = 0.0
+        self.WIGGLY_BEHAVIOR_THRESHOLD = np.inf
+        self.COLLISION_DIST = 0.0 # meters between agents' boundaries for collision
+        self.GETTING_CLOSE_RANGE = 0.1 # meters between agents' boundaries for collision
+        # self.SOCIAL_NORMS = "right"
+        # self.SOCIAL_NORMS = "left"
+        self.SOCIAL_NORMS = "none"
+        
+        self.AGENT_SORTING_METHOD = 'closest_last'
+
+
+        ### OBSERVATIONS
+        self.USE_IMAGE           = False # Enable image input
+        self.NN_INPUT_AVG_VECTOR = np.array([])
+        self.NN_INPUT_STD_VECTOR = np.array([])
+        self.NN_INPUT_SIZE = 0
+        for state in self.STATES_IN_OBS:
+            if state not in self.STATES_NOT_USED_IN_POLICY:
+                self.NN_INPUT_SIZE += np.product(self.STATE_INFO_DICT[state]['size'])
+                self.NN_INPUT_AVG_VECTOR = np.hstack([self.NN_INPUT_AVG_VECTOR, self.STATE_INFO_DICT[state]['mean'].flatten()])
+                self.NN_INPUT_STD_VECTOR = np.hstack([self.NN_INPUT_STD_VECTOR, self.STATE_INFO_DICT[state]['std'].flatten()])
+        self.FIRST_STATE_INDEX = 1
+        self.HOST_AGENT_OBSERVATION_LENGTH = 4 # dist to goal, heading to goal, pref speed, radius
+        self.OTHER_AGENT_OBSERVATION_LENGTH = 7 # other px, other py, other vx, other vy, other radius, combined radius, distance between
+        self.OTHER_AGENT_FULL_OBSERVATION_LENGTH = self.OTHER_AGENT_OBSERVATION_LENGTH
+        self.HOST_AGENT_STATE_SIZE = self.HOST_AGENT_OBSERVATION_LENGTH
+
+        ### ACTIONS
+        self.NUM_ACTIONS = 11
+
+        self.LOAD_RL_THEN_TRAIN_RL, self.TRAIN_ONLY_REGRESSION, self.LOAD_REGRESSION_THEN_TRAIN_RL = range(3)
+
+        ### NETWORK
+        self.NET_ARCH            = 'NetworkVP_rnn' # Neural net architecture
+        self.ALL_ARCHS           = ['NetworkVP_rnn'] # Can add more model types here
+        self.NORMALIZE_INPUT     = True
+        self.USE_DROPOUT         = False
+        self.USE_REGULARIZATION  = True
+
+        #########################################################################
+        # NUMBER OF AGENTS, PREDICTORS, TRAINERS, AND OTHER SYSTEM SETTINGS
+        # IF THE DYNAMIC CONFIG IS ON, THESE ARE THE INITIAL VALUES
+        self.AGENTS                        = 32 # Number of Agents
+        self.PREDICTORS                    = 2 # Number of Predictors
+        self.TRAINERS                      = 2 # Number of Trainers
+        self.DEVICE                        = '/cpu:0' # Device
+        self.DYNAMIC_SETTINGS              = False # Enable the dynamic adjustment (+ waiting time to start it)
+        self.DYNAMIC_SETTINGS_STEP_WAIT    = 20
+        self.DYNAMIC_SETTINGS_INITIAL_WAIT = 10
+
+        #########################################################################
+        # ALGORITHM PARAMETER
+        self.DISCOUNT                = 0.97 # Discount factor
+        self.TIME_MAX                = int(4/self.DT) # Tmax
+        self.MAX_QUEUE_SIZE          = 100 # Max size of the queue
+        self.PREDICTION_BATCH_SIZE   = 128
+        self.MIN_POLICY = 0.0 # Minimum policy
+
+        # OPTIMIZER PARAMETERS
+        self.OPT_RMSPROP, self.OPT_ADAM   = range(2) # Initialize optimizer types as enum
+        self.OPTIMIZER               = self.OPT_ADAM # Game choice: Either "game_grid" or "game_ale"
+        self.LEARNING_RATE_RL_START     = 2e-5 # Learning rate
+        self.LEARNING_RATE_RL_END     = 2e-5 # Learning rate
+        self.RMSPROP_DECAY           = 0.99
+        self.RMSPROP_MOMENTUM        = 0.0
+        self.RMSPROP_EPSILON         = 0.1
+        self.BETA_START              = 1e-4 # Entropy regularization hyper-parameter
+        self.BETA_END                = 1e-4
+        self.USE_GRAD_CLIP           = False # Gradient clipping
+        self.GRAD_CLIP_NORM          = 40.0
+        self.LOG_EPSILON             = 1e-6 # Epsilon (regularize policy lag in GA3C)
+        self.TRAINING_MIN_BATCH_SIZE = 100 # Training min batch size - increasing the batch size increases the stability of the algorithm, but make learning slower
+
+        #########################################################################
+        # LOG AND SAVE
+        self.TENSORBOARD                  = True # Enable TensorBoard
+        self.TENSORBOARD_UPDATE_FREQUENCY = 100 # Update TensorBoard every X training steps
+        self.SAVE_MODELS                  = True # Enable to save models every SAVE_FREQUENCY episodes
+        self.SAVE_FREQUENCY               = 50000 # Save every SAVE_FREQUENCY episodes
+        self.SPECIAL_EPISODES_TO_SAVE = [] # Save these episode numbers, in addition to ad SAVE_FREQUENCY 
+        self.PRINT_STATS_FREQUENCY        = 1 # Print stats every PRINT_STATS_FREQUENCY episodes
+        self.STAT_ROLLING_MEAN_WINDOW     = 1000 # The window to average stats
+        self.RESULTS_FILENAME             = 'results.txt'# Results filename
+        self.NETWORK_NAME                 = 'network'# Network checkpoint name
+
+
+
+class PA_TrainPhase1(PA_Train):
+    def __init__(self):
+        self.MAX_NUM_AGENTS_IN_ENVIRONMENT = 4
+        self.MAX_NUM_AGENTS_TO_SIM = 4
+        Pa_Train.__init__(self)
+        self.TRAIN_VERSION = self.LOAD_REGRESSION_THEN_TRAIN_RL
+        if self.MULTI_AGENT_ARCH == self.MULTI_AGENT_ARCH_RNN:
+            self.LOAD_FROM_WANDB_RUN_ID = 'run-rnn'
+        elif self.MULTI_AGENT_ARCH == self.MULTI_AGENT_ARCH_WEIGHT_SHARING:
+            self.LOAD_FROM_WANDB_RUN_ID = 'run-ws-'+str(self.MAX_NUM_OTHER_AGENTS_OBSERVED+1)
+        self.SAVE_FREQUENCY = 10000
+        self.EPISODE_NUMBER_TO_LOAD = 0
+
+
+        self.REWARD_AT_GOAL = 1.0 # reward given when agent reaches goal position
+        self.REWARD_COLLISION_WITH_AGENT = -0.5 # reward given when agent collides with another agent
+        self.REWARD_COLLISION_WITH_WALL = -0.5 # reward given when agent collides with wall
+        #Speed Reward
+        self.REWARD_SPD_EXTREME = -0.15
+        self.SPD_EXTREME_BORDER = -1
+        self.SPD_OVER_DIST_IMPORTANCE = 1
+
+
+        #Moving Towards Goal
+        self.DELTA_DIST_TO_GOAL_COEF = 0.1
+
+        self.EPISODES                = 1500000 # Total number of episodes and annealing frequency
+        self.ANNEALING_EPISODE_COUNT = 1500000
+
+        self.SPECIAL_EPISODES_TO_SAVE = [1490000, 1500000]
+
+
+class PA_TrainPhase1_CONT(PA_Train):
+    def __init__(self):
+        self.MAX_NUM_AGENTS_IN_ENVIRONMENT = 4
+        self.MAX_NUM_AGENTS_TO_SIM = 4
+        PA_Train.__init__(self)
+        self.EPISODES                = 1500000
+        self.ANNEALING_EPISODE_COUNT = 1500000
+        self.TRAIN_VERSION = self.LOAD_RL_THEN_TRAIN_RL
+        # self.LOAD_FROM_WANDB_RUN_ID = 'run-20200401_205620-2dfp6yeg'
+        # self.EPISODE_NUMBER_TO_LOAD        = 1450000
+        self.LOAD_FROM_WANDB_RUN_ID = 'run-20220816_054035-1xk5y4oj'
+        self.EPISODE_NUMBER_TO_LOAD        = 1350000
+        self.SAVE_FREQUENCY = 10000
+
+        self.REWARD_AT_GOAL = 1.0 # reward given when agent reaches goal position
+        self.REWARD_COLLISION_WITH_AGENT = -0.5 # reward given when agent collides with another agent
+        self.REWARD_COLLISION_WITH_WALL = -0.5 # reward given when agent collides with wall
+        #Speed Reward
+        self.REWARD_SPD_EXTREME = -0.15
+        self.SPD_EXTREME_BORDER = -1
+        self.SPD_OVER_DIST_IMPORTANCE = 1
+
+
+        #Moving Towards Goal
+        self.DELTA_DIST_TO_GOAL_COEF = 0.1
+
+        self.SPECIAL_EPISODES_TO_SAVE = [1490000, 1500000]
+
+
+
+class PA_TrainPhase2(PA_Train):
+    def __init__(self):
+        self.MAX_NUM_AGENTS_IN_ENVIRONMENT = 10
+        self.MAX_NUM_AGENTS_TO_SIM = 10
+        PA_Train.__init__(self)
+        self.EPISODES                = 2000000
+        self.ANNEALING_EPISODE_COUNT = 2000000
+        self.TRAIN_VERSION = self.LOAD_RL_THEN_TRAIN_RL
+        # self.LOAD_FROM_WANDB_RUN_ID = 'run-20200401_205620-2dfp6yeg'
+        # self.EPISODE_NUMBER_TO_LOAD        = 1450000
+        self.LOAD_FROM_WANDB_RUN_ID = 'run-20220816_054035-1xk5y4oj'
+        self.EPISODE_NUMBER_TO_LOAD        = 0
+        self.SAVE_FREQUENCY = 10000
+
+        self.REWARD_AT_GOAL = 1.0 # reward given when agent reaches goal position
+        self.REWARD_COLLISION_WITH_AGENT = -0.5 # reward given when agent collides with another agent
+        self.REWARD_COLLISION_WITH_WALL = -0.5 # reward given when agent collides with wall
+        #Speed Reward
+        self.REWARD_SPD_EXTREME = -0.15
+        self.SPD_EXTREME_BORDER = -1
+        self.SPD_OVER_DIST_IMPORTANCE = 1
+
+
+        #Moving Towards Goal
+        self.DELTA_DIST_TO_GOAL_COEF = 0.1
+
+        self.SPECIAL_EPISODES_TO_SAVE = [1990000, 2000000]
+
+
+##### END
