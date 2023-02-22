@@ -1,0 +1,2 @@
+model_checkpoint_path: "/home/cilab/Storage/rl_collision/ga3c/GA3C/checkpoints/RL/wandb/offline-run-20221116_170046-26dtd4xg/files/checkpoints/network_01990000"
+all_model_checkpoint_paths: "/home/cilab/Storage/rl_collision/ga3c/GA3C/checkpoints/RL/wandb/offline-run-20221116_170046-26dtd4xg/files/checkpoints/network_01990000"

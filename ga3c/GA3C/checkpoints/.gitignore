@@ -13,6 +13,7 @@ RL_tmp
 # Ignore everything in RL and regression EXCEPT the two dirs
 RL/wandb/*
 !RL/wandb/run-2018-backup
+!RL/wandb/PA-CADRL
 RL/wandb/run-2018-backup/checkpoints/*
 regression/wandb/*
 !regression/wandb/run-rnn
