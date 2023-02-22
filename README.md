@@ -8,7 +8,7 @@ Please note that this repo and the [gym environment repo](https://github.com/ind
 
 The repo contains the source code and configuration used to train PA-CADRL policy introduced in the paper above.
 
-Our work is based upon the previous work mentioned below:
+Our work is based on the previous work mentioned below:
 
 **Journal Version (previous work);** M. Everett, Y. Chen, and J. P. How, "Collision Avoidance in Pedestrian-Rich Environments with Deep Reinforcement Learning", in review, [Link to Paper](https://arxiv.org/abs/1910.11689)
 
