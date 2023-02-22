@@ -9,10 +9,10 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 if $MAKE_VENV; then
     # Virtualenv w/ python3
-    export PYTHONPATH=/usr/bin/python3 # point to your python3
+    export PYTHONPATH=/usr/bin/python3.7 # point to your python3
 
     # Check that it's actually python 3.4-7
-    PYTHONVERSION=`python --version`
+    PYTHONVERSION=`python3.7 --version`
     if [[ ${PYTHONVERSION:7:1} == "3" && (${PYTHONVERSION:9:1} == "4" || ${PYTHONVERSION:9:1} == "5" || ${PYTHONVERSION:9:1} == "6" || ${PYTHONVERSION:9:1} == "7") ]]; then
         echo "You have Python 3.[4-7] installed (${PYTHONVERSION}). Cool."
     else
@@ -20,17 +20,17 @@ if $MAKE_VENV; then
         exit 1
     fi
 
-    python -m pip install zipp==1.2.0 # virtualenv for python3.5
-    python -m pip install virtualenv
-    cd $DIR
-    python -m virtualenv venv
+    python3.7 -m pip install zipp==1.2.0 # virtualenv for python3.5
+    python3.7 -m pip install virtualenv
+    cd "$DIR"
+    python3.7 -m virtualenv venv
 fi
 
 if $SOURCE_VENV; then
     echo "Sourcing venv"
-    cd $DIR
+    cd "$DIR"
     source venv/bin/activate
-    export PYTHONPATH=${DIR}/venv/lib/python3.5/site-packages
+    export PYTHONPATH="${DIR}/venv/lib/python3.7/site-packages"
 fi
 
 # Install Git LFS (if not already)
@@ -51,12 +51,12 @@ else
     git lfs pull
 fi
 
-$DIR/gym-collision-avoidance/install.sh false false
+"$DIR/gym-collision-avoidance/install.sh" false false
 
 
 # # Install this pkg and its requirements
-python -m pip install -r requirements.txt
-python -m pip install -e ga3c
+python3.7 -m pip install -r requirements.txt
+python3.7 -m pip install -e ga3c
 
 # export PYTHONPATH=/home/mfe/code/rl_collision_avoidance/venv/lib/python3.5/site-packages
 
